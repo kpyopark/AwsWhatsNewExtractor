@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.poi.ss.usermodel.PrintOrientation;
 import org.elevenquest.utils.StringUtil;
 import org.elevenquest.utils.TagNodeUtil;
 import org.htmlcleaner.HtmlCleaner;
@@ -70,9 +71,62 @@ public class AwsNewsExtractor {
 		while(matcher.find()) links.add(matcher.group(2));
 		return links;
 	}
+
+	private static final String QUOTE = "\"";
+	private static final Pattern NON_WORD = Pattern.compile(".*\\W.*");
+
+	private final static String quotedString(String unquoted) {
+		final StringBuilder sb = new StringBuilder();
+		final Matcher m = NON_WORD.matcher(unquoted);
+		if (m.matches()) {
+			if (unquoted.contains(QUOTE)) {
+				unquoted = unquoted.replaceAll(QUOTE, "\"\"");
+			}
+			return sb.append(QUOTE).append(unquoted).append(QUOTE).toString();
+		} else {
+			return unquoted;
+		}
+	}
+
+	private final static void printToCsv(String fileName, List<WhatsNewItem> items) {
+		PrintWriter pw = null;
+		try {
+			pw = new PrintWriter(new FileOutputStream(fileName));
+			for(WhatsNewItem item : items) {
+				StringBuffer csv = new StringBuffer();
+				csv.append(
+						quotedString(item.date))
+					.append(",").append(quotedString(item.header))
+					.append(",").append(quotedString(item.description))
+					.append(",").append(quotedString(item.anouncelink))
+					.append(",").append(quotedString(String.join(" ",item.relatedLinks)));
+				pw.println(csv);
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			if (pw != null)
+				try {
+					pw.close();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			;
+		}
+	}
 	
 	public static void main(String[] args) {
-		AwsNewsExtractor extractor = new AwsNewsExtractor("2018");
-		// extractor.extract();
+		String filename;
+		String year;
+		if(args.length<2) {
+			year = args.length == 1 ? args[0] : "2020";
+			filename = "./sample.csv";
+		} else {
+			year = args[0];
+			filename = args[1];
+		}
+		AwsNewsExtractor extractor = new AwsNewsExtractor(year);
+		printToCsv(filename, extractor.extract());
 	}
 }
